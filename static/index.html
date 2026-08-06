@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>decart — Lucy 2.5</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #ffffff;
+            color: #0f172a;
+            height: 100vh; width: 100vw;
+            overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            height: 64px; min-height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 32px;
+            background: #ffffff;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .header-left {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .logo {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px;
+        }
+        .logo-plus {
+            color: #2563eb; font-weight: 800; font-size: 26px;
+        }
+        .version-badge {
+            background: #f1f5f9; color: #475569;
+            font-size: 13px; font-weight: 600;
+            padding: 4px 12px; border-radius: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        .header-right {
+            display: flex; align-items: center; gap: 16px;
+        }
+        .session-timer {
+            font-family: monospace; font-size: 14px; color: #64748b; font-weight: 500;
+        }
+        .btn-session {
+            background: #ef4444; color: #ffffff;
+            border: none; border-radius: 8px;
+            padding: 8px 16px; font-size: 13px; font-weight: 600;
+            cursor: pointer; display: flex; align-items: center; gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .btn-session:hover { background: #dc2626; }
+        .btn-session .square-icon {
+            width: 8px; height: 8px; background: #ffffff; border-radius: 1px;
+        }
+
+        /* ========== MAIN CONTAINER ========== */
+        .main-container {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: space-between;
+            padding: 16px 32px 24px;
+            position: relative; overflow: hidden;
+            background: #ffffff;
+        }
+
+        /* ========== DUAL STREAM VIEWPORT ========== */
+        .viewport-grid {
+            display: flex; gap: 20px;
+            width: 100%; max-width: 1200px;
+            height: calc(100vh - 230px);
+            align-items: center; justify-content: center;
+        }
+        .stream-card {
+            flex: 1; height: 100%; max-height: 520px;
+            background: #0f172a;
+            border-radius: 20px; overflow: hidden;
+            position: relative; display: flex;
+            align-items: center; justify-content: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        .stream-card video, .stream-card canvas, .stream-card img {
+            width: 100%; height: 100%;
+            object-fit: cover; display: block;
+        }
+        .card-tag {
+            position: absolute; top: 16px; left: 16px;
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);
+            color: #ffffff; font-size: 11px; font-weight: 600;
+            padding: 4px 10px; border-radius: 12px;
+            letter-spacing: 0.5px; text-transform: uppercase;
+            z-index: 5;
+        }
+        .card-watermark {
+            position: absolute; top: 16px; right: 16px;
+            color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 600;
+            z-index: 5; pointer-events: none;
+        }
+        .ref-badge {
+            position: absolute; bottom: 16px; right: 16px;
+            width: 70px; height: 90px;
+            background: #ffffff; border-radius: 10px;
+            border: 2px solid #ffffff; overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 5; display: flex; align-items: center; justify-content: center;
+        }
+        .ref-badge img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .ref-badge .close-btn {
+            position: absolute; top: 2px; right: 2px;
+            width: 16px; height: 16px; background: rgba(0,0,0,0.6);
+            color: #fff; border-radius: 50%; font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+
+        /* ========== FLOATING PROMPT BAR ========== */
+        .prompt-container {
+            position: absolute; bottom: 90px;
+            left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 680px;
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0; border-radius: 20px;
+            padding: 12px 16px 12px 20px;
+            display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+            z-index: 20; transition: all 0.2s ease;
+        }
+        .prompt-container:focus-within {
+            border-color: #2563eb; background: #ffffff;
+            box-shadow: 0 12px 30px rgba(37,99,235,0.12);
+        }
+        .prompt-input-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        }
+        .prompt-input {
+            flex: 1; border: none; background: transparent;
+            font-size: 15px; font-weight: 500; color: #0f172a;
+            outline: none; font-family: inherit;
+        }
+        .prompt-input::placeholder { color: #94a3b8; }
+        .prompt-actions {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .badge-asset {
+            display: flex; align-items: center; gap: 6px;
+            background: #ffffff; border: 1px solid #cbd5e1;
+            padding: 4px 10px; border-radius: 14px;
+            font-size: 12px; font-weight: 600; color: #334155;
+        }
+        .badge-asset img {
+            width: 18px; height: 18px; border-radius: 4px; object-fit: cover;
+        }
+        .badge-asset .remove {
+            color: #94a3b8; cursor: pointer; margin-left: 2px;
+        }
+        .btn-send {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: #2563eb; color: #ffffff;
+            border: none; font-size: 16px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background 0.2s ease;
+        }
+        .btn-send:hover { background: #1d4ed8; }
+
+        /* ========== EXAMPLE PILLS CAROUSEL ========== */
+        .carousel-container {
+            width: 100%; max-width: 1100px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .carousel-toggle {
+            font-size: 12px; font-weight: 600; color: #64748b;
+            cursor: pointer; display: flex; align-items: center; gap: 4px;
+        }
+        .pills-row {
+            display: flex; gap: 10px;
+            overflow-x: auto; padding-bottom: 4px;
+            scrollbar-width: none;
+        }
+        .pills-row::-webkit-scrollbar { display: none; }
+        .pill-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 14px 6px 8px; border-radius: 24px;
+            background: #f1f5f9; border: 1.5px solid #e2e8f0;
+            font-size: 13px; font-weight: 600; color: #334155;
+            cursor: pointer; white-space: nowrap;
+            transition: all 0.2s ease; user-select: none;
+        }
+        .pill-item:hover {
+            background: #e2e8f0; border-color: #cbd5e1;
+        }
+        .pill-item.active {
+            background: #ffffff; border-color: #2563eb; color: #2563eb;
+            box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+        }
+        .pill-icon {
+            width: 24px; height: 24px; border-radius: 50%;
+            object-fit: cover; background: #cbd5e1;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; overflow: hidden;
+        }
+
+        #hiddenVideo, #captureCanvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER ========== -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-plus">┼</span> decart
+            </div>
+            <span class="version-badge">Lucy 2.5</span>
+        </div>
+        <div class="header-right">
+            <div style="display: flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 12px; border-radius: 20px;">
+                <span style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%; display: inline-block;"></span>
+                <span style="font-size: 12px; font-weight: 600; color: #15803d;">Colab Free GPU Active</span>
+            </div>
+            <span class="session-timer" id="sessionTimer">00:00</span>
+            <button class="btn-session" id="btnSession" onclick="app.toggleSession()">
+                <span class="square-icon"></span>
+                <span id="btnSessionText">Stop Session</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ========== MAIN VIEWPORT ========== -->
+    <main class="main-container">
+        <div class="viewport-grid">
+            <!-- Left: Webcam Input -->
+            <div class="stream-card">
+                <span class="card-tag">Camera Stream</span>
+                <canvas id="inputCanvas" width="512" height="512"></canvas>
+            </div>
+
+            <!-- Right: Decart AI Live 2.5D Output -->
+            <div class="stream-card">
+                <span class="card-tag">Decart 2.5D Stream</span>
+                <span class="card-watermark">+ decart</span>
+                <canvas id="outputCanvas" width="512" height="512"></canvas>
+                <div class="ref-badge" id="refBadge">
+                    <span class="close-btn" onclick="app.clearRef()">✕</span>
+                    <img id="refBadgeImg" src="/static/products/tuxedo.jpg" alt="Ref" />
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== FLOATING PROMPT BAR ========== -->
+        <div class="prompt-container">
+            <div class="prompt-input-row">
+                <input type="text" class="prompt-input" id="promptInput" 
+                       placeholder="Change the person's clothes to..." 
+                       value="Change the person's clothes to the tuxedo from the reference">
+                <div class="prompt-actions">
+                    <div class="badge-asset" id="assetBadge">
+                        <img id="assetBadgeImg" src="/static/products/tuxedo.jpg" alt="Icon">
+                        <span class="remove" onclick="app.clearRef()">✕</span>
+                    </div>
+                    <button class="btn-send" onclick="app.sendPrompt()">➔</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== EXAMPLE PILLS CAROUSEL ========== -->
+        <div class="carousel-container">
+            <div class="carousel-toggle" onclick="app.toggleCarousel()">
+                <span id="carouselIcon">▲</span> Hide Examples
+            </div>
+            <div class="pills-row" id="pillsRow">
+                <div class="pill-item active" onclick="app.selectMode('tuxedo', 'Tuxedo', '/static/products/tuxedo.jpg', 'Change the person\'s clothes to the tuxedo from the reference')">
+                    <div class="pill-icon">👔</div>
+                    <span>Tuxedo</span>
+                </div>
+                <div class="pill-item" onclick="app.selectMode('khaadi', 'Khaadi Lawn', '/static/products/suit_teal_coral.jpg', 'Change the person\'s clothes to Khaadi Lawn Suit from the reference')">
+                    <div class="pill-icon">👗</div>
+                    <span>Khaadi Lawn</span>
+                </div>
+                <div class="pill-item" onclick="app.selectMode('animated', 'Animated', '', 'Restyle to animated 3D Pixar movie style')">
+                    <div class="pill-icon">🎬</div>
+                    <span>Animated</span>
+                </div>
+                <div class="pill-item" onclick="app.selectMode('baby_alien', 'Baby alien', '', 'Transform person to baby alien')">
+                    <div class="pill-icon">👶</div>
+                    <span>Baby alien</span>
+                </div>
+                <div class="pill-item" onclick="app.selectMode('hair_on_fire', 'Hair on Fire', '', 'Add hair on fire flames effect')">
+                    <div class="pill-icon">🔥</div>
+                    <span>Hair on Fire</span>
+                </div>
+                <div class="pill-item" onclick="app.selectMode('green_slime', 'Green Slime', '', 'Add dynamic green slime fluid effect')">
+                    <div class="pill-icon">💚</div>
+                    <span>Green Slime</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <video id="hiddenVideo" autoplay playsinline muted></video>
+    <canvas id="captureCanvas" width="640" height="480"></canvas>
+
+    <script>
+    'use strict';
+
+    class DecartLucyApp {
+        constructor() {
+            this.video = document.getElementById('hiddenVideo');
+            this.inputCanvas = document.getElementById('inputCanvas');
+            this.inputCtx = this.inputCanvas.getContext('2d');
+            this.outputCanvas = document.getElementById('outputCanvas');
+            this.outputCtx = this.outputCanvas.getContext('2d');
+
+            this.ws = null;
+            this.active = false;
+            this.seconds = 0;
+            this.timerId = null;
+
+            this.currentMode = 'tuxedo';
+            this.currentPrompt = "Change the person's clothes to the tuxedo from the reference";
+            this.currentRef = '/static/products/tuxedo.jpg';
+
+            this.init();
+        }
+
+        async init() {
+            await this.startCamera();
+            this.connectWebSocket();
+            this.startTimer();
+            this.renderLoop();
+        }
+
+        async startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 512 }, height: { ideal: 512 }, frameRate: { ideal: 30 } },
+                    audio: false
+                });
+                this.video.srcObject = stream;
+                await this.video.play();
+                this.active = true;
+            } catch (e) {
+                console.error('Camera error:', e);
+            }
+        }
+
+        connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = `${protocol}//${window.location.host}/ws/tryon`;
+            this.ws = new WebSocket(url);
+            this.isProcessingFrame = false;
+
+            this.ws.onopen = () => console.log('Decart WebSocket connected');
+            this.ws.onmessage = (event) => {
+                this.isProcessingFrame = false;
+                const data = JSON.parse(event.data);
+                if (data.type === 'frame' && data.data) {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.outputCtx.drawImage(img, 0, 0, 512, 512);
+                    };
+                    img.src = 'data:image/jpeg;base64,' + data.data;
+                }
+            };
+            this.ws.onerror = () => { this.isProcessingFrame = false; };
+            this.ws.onclose = () => { this.isProcessingFrame = false; };
+        }
+
+        renderLoop() {
+            const loop = () => {
+                if (this.active && this.video.readyState >= 2) {
+                    this.inputCtx.drawImage(this.video, 0, 0, 512, 512);
+                    
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN && !this.isProcessingFrame) {
+                        this.isProcessingFrame = true;
+                        const frameB64 = this.inputCanvas.toDataURL('image/jpeg', 0.75);
+                        this.ws.send(JSON.stringify({
+                            type: 'frame',
+                            data: frameB64,
+                            product_id: this.currentMode,
+                            prompt: this.currentPrompt
+                        }));
+                    }
+                }
+                requestAnimationFrame(loop);
+            };
+            loop();
+        }
+
+        selectMode(mode, name, refUrl, promptText) {
+            this.currentMode = mode;
+            this.currentPrompt = promptText;
+            this.currentRef = refUrl;
+
+            document.getElementById('promptInput').value = promptText;
+
+            const badge = document.getElementById('assetBadge');
+            const refBadge = document.getElementById('refBadge');
+
+            if (refUrl) {
+                badge.style.display = 'flex';
+                refBadge.style.display = 'flex';
+                document.getElementById('assetBadgeImg').src = refUrl;
+                document.getElementById('refBadgeImg').src = refUrl;
+            } else {
+                badge.style.display = 'none';
+                refBadge.style.display = 'none';
+            }
+
+            document.querySelectorAll('.pill-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        clearRef() {
+            document.getElementById('assetBadge').style.display = 'none';
+            document.getElementById('refBadge').style.display = 'none';
+            this.currentRef = '';
+        }
+
+        sendPrompt() {
+            this.currentPrompt = document.getElementById('promptInput').value;
+        }
+
+        startTimer() {
+            this.timerId = setInterval(() => {
+                this.seconds++;
+                const mins = String(Math.floor(this.seconds / 60)).padStart(2, '0');
+                const secs = String(this.seconds % 60).padStart(2, '0');
+                document.getElementById('sessionTimer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        async activateGenerativeKey() {
+            const key = document.getElementById('falKeyInput').value.trim();
+            if (!key) { alert('Please paste your Fal.ai Key!'); return; }
+            try {
+                const res = await fetch('/api/set-fal-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: key })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('✨ Real-Time Generative AI Video-to-Video Diffusion Engine Activated!');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        toggleSession() {
+            if (this.active) {
+                this.active = false;
+                if (this.video.srcObject) {
+                    this.video.srcObject.getTracks().forEach(t => t.stop());
+                }
+                document.getElementById('btnSessionText').textContent = 'Start Session';
+            } else {
+                this.startCamera();
+                document.getElementById('btnSessionText').textContent = 'Stop Session';
+            }
+        }
+    }
+
+    const app = new DecartLucyApp();
+    </script>
+</body>
+</html>
