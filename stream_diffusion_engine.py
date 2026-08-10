@@ -129,7 +129,7 @@ class StreamDiffusionVideoEngine:
                 "image": pil_img,
                 "num_inference_steps": 4,
                 "guidance_scale": 1.5,
-                "strength": 0.55
+                "strength": 0.78
             }
 
             if _has_ip_adapter and garment_bgr is not None:
@@ -167,16 +167,14 @@ class StreamDiffusionVideoEngine:
             if out_bgr.shape[:2] != (h, w):
                 out_bgr = cv2.resize(out_bgr, (w, h), interpolation=cv2.INTER_LINEAR)
 
-            # 4. 100% Face & Background Preservation (Zero-Morphing Guarantee)
+            # 4. Restore ONLY the exact face box (leaves chest, shoulders, and clothes 100% open for AI Video)
             if face_bbox is not None:
                 fx1, fy1, fx2, fy2 = face_bbox
-                protect_y = min(h, fy2 + int(0.04 * h))
-                protect_y = max(int(h * 0.40), protect_y)
-            else:
-                protect_y = int(h * 0.40)
-
-            # Restore original raw camera pixels above neck line
-            out_bgr[:protect_y, :, :] = frame_bgr[:protect_y, :, :]
+                fy1_pad = max(0, fy1 - int(0.05 * h))
+                fy2_pad = min(h, fy2 + int(0.02 * h))
+                fx1_pad = max(0, fx1 - int(0.04 * w))
+                fx2_pad = min(w, fx2 + int(0.04 * w))
+                out_bgr[fy1_pad:fy2_pad, fx1_pad:fx2_pad] = frame_bgr[fy1_pad:fy2_pad, fx1_pad:fx2_pad]
 
             latency_ms = (time.time() - start_t) * 1000
             return out_bgr, latency_ms
