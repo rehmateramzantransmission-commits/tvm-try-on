@@ -354,7 +354,7 @@ def _run_hd_tryon_sync(frame_b64: str, product_id: str) -> Optional[str]:
                 "user_image": frame_b64,
                 "garment_image": garm_b64,
                 "description": f"{product.brand} {product.name}"
-            }, timeout=45)
+            }, timeout=120)
             if resp.status_code == 200:
                 res_data = resp.json()
                 if res_data.get("status") == "success" and res_data.get("image"):
