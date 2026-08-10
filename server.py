@@ -459,8 +459,9 @@ async def websocket_tryon(websocket: WebSocket):
                         img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                         if img_bgr is None: return None, 0
                         # Get face bbox for protection
-                        face_bbox = engine._get_face_bbox_pixels(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-                        out_bgr, lat = stream_engine.process_stream_frame(img_bgr, prod_id, prompt_text, face_bbox)
+                        face_bbox = engine._engine._get_face_bbox_pixels(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+                        garment_img = engine.garments.get(prod_id)
+                        out_bgr, lat = stream_engine.process_stream_frame(img_bgr, prod_id, garment_img, prompt_text, face_bbox)
                         _, buf = cv2.imencode(".jpg", out_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
                         return base64.b64encode(buf).decode("utf-8"), lat
                     out_b64, latency_ms = await loop.run_in_executor(None, _run_stream)
