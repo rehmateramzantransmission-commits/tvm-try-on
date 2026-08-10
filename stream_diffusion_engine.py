@@ -143,7 +143,7 @@ class StreamDiffusionVideoEngine:
                     else:
                         garm_rgb = garment_bgr
                     garment_pil = Image.fromarray(garm_rgb)
-                    kwargs["ip_adapter_image"] = [garment_pil]  # <--- 1:1 GARMENT FEATURE EMBEDDING
+                    kwargs["ip_adapter_image"] = garment_pil  # <--- 1:1 GARMENT FEATURE EMBEDDING
 
             # 3. Temporal Latent KV-Caching (Zero-Flicker Persistence)
             with torch.inference_mode():
@@ -168,7 +168,7 @@ class StreamDiffusionVideoEngine:
                 out_bgr = cv2.resize(out_bgr, (w, h), interpolation=cv2.INTER_LINEAR)
 
             # 4. Restore ONLY the exact face box (leaves chest, shoulders, and clothes 100% open for AI Video)
-            if face_bbox is not None:
+            if face_bbox is not None and isinstance(face_bbox, (tuple, list)) and len(face_bbox) == 4:
                 fx1, fy1, fx2, fy2 = face_bbox
                 fy1_pad = max(0, fy1 - int(0.05 * h))
                 fy2_pad = min(h, fy2 + int(0.02 * h))
