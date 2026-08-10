@@ -33,12 +33,19 @@ logger = logging.getLogger("tvm-server")
 HAS_INPAINT = False
 _inpaint_pipe = None
 
+# Set USE_INPAINT = True to enable seam harmonization (may cause black box on dark garments)
+USE_INPAINT = False
+
 def init_inpaint_pipeline():
     """
     Load StableDiffusionInpaintPipeline with LCM-LoRA for fast GPU inpainting.
+    Only activates when USE_INPAINT = True.
     Falls back silently on CPU / missing deps.
     """
     global HAS_INPAINT, _inpaint_pipe
+    if not USE_INPAINT:
+        logger.info("SD Inpaint disabled (USE_INPAINT=False) — using pure garment warp mode.")
+        return
     try:
         import torch
         from diffusers import StableDiffusionInpaintPipeline, LCMScheduler
@@ -68,6 +75,7 @@ def init_inpaint_pipeline():
         logger.info("✅ SD Inpaint + LCM-LoRA ready — seam harmonization ACTIVE.")
     except Exception as e:
         logger.info(f"Inpaint pipeline fallback (warp-only): {e}")
+
 
 
 # ---------------------------------------------------------------------------
