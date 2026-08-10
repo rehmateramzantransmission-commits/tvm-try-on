@@ -403,14 +403,22 @@ class TryOnEngine:
     # ------------------------------------------------------------------
     def _inpaint_seam(
         self,
-        composited: np.ndarray,   # BGR [h,w,3] with garment warp blended
-        torso_mask: np.ndarray,   # float [h,w] 0..1
+        composited: np.ndarray,   # BGR [h,w,3] after garment warp blend
+        torso_mask: np.ndarray,   # float32 [h,w] 0..1
         product_id: str,
+        warped_bgr: np.ndarray,   # original garment warp BGR – used as fallback
+        alpha: np.ndarray,        # garment alpha float32 [h,w] – used as fallback
     ) -> np.ndarray:
         """
-        Run SD Inpaint on the torso border (eroded from full mask) to harmonize
-        lighting / seams.  Face pixels are NEVER inside the inpaint mask.
-        Returns updated BGR frame.
+        Run SD Inpaint ONLY on the thin seam border (dilate-erode ring) of the
+        torso mask to harmonize lighting and garment edges.
+
+        Safety guarantees:
+          1. BGR→RGB conversion before sending to PIL / diffusion pipeline.
+          2. Validates result is not all-black (mean pixel < 10 in masked area).
+          3. If inpaint is dark/corrupt, falls back to the clean alpha-blended
+             garment warp (composited) – NO BLACK BOX.
+          4. Inpaint result composited only on the seam ring, not the full frame.
         """
         if not HAS_INPAINT or _inpaint_pipe is None:
             return composited
@@ -418,38 +426,89 @@ class TryOnEngine:
             import torch
             from PIL import Image
 
-            # Build a narrow border mask (dilated - eroded)
+            # 1. Build narrow seam-border mask (dilated ring around garment)
             m_uint8 = (torso_mask * 255).astype(np.uint8)
             kernel  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21))
             dilated = cv2.dilate(m_uint8, kernel, iterations=1)
-            eroded  = cv2.erode(m_uint8, kernel, iterations=2)
+            eroded  = cv2.erode(m_uint8,  kernel, iterations=2)
             border  = cv2.subtract(dilated, eroded)
             border  = cv2.GaussianBlur(border, (9, 9), 0)
 
             if border.max() < 10:
-                return composited   # nothing to inpaint
+                return composited   # no meaningful seam to process
 
-            pil_image = Image.fromarray(cv2.cvtColor(composited, cv2.COLOR_BGR2RGB))
-            pil_mask  = Image.fromarray(border)
+            # 2. Convert BGR→RGB, ensure uint8 [0,255] for PIL  ← KEY FIX
+            composited_u8 = np.clip(composited, 0, 255).astype(np.uint8)
+            rgb_arr   = cv2.cvtColor(composited_u8, cv2.COLOR_BGR2RGB)  # RGB!
+            pil_image = Image.fromarray(rgb_arr)          # RGB uint8 PIL
+            pil_mask  = Image.fromarray(border.astype(np.uint8))  # L uint8
+
+            # Resize to standard 512×512 the pipeline expects
+            pil_image = pil_image.resize((512, 512), Image.LANCZOS)
+            pil_mask  = pil_mask.resize((512, 512), Image.NEAREST)
 
             prompt_text = (
-                f"photorealistic man wearing {product_id} suit, "
-                "sharp fabric texture, studio lighting, 4k, consistent skin tone"
+                f"photorealistic person wearing {product_id} jacket, "
+                "sharp fabric texture, realistic studio lighting, seamless fit, 4k"
             )
+            neg_prompt = (
+                "black, dark, shadow, blurry, distorted, watermark, bad anatomy, "
+                "extra limbs, disfigured"
+            )
+
+            # 3. Run SD Inpaint inference
             with torch.inference_mode():
-                result = _inpaint_pipe(
+                result_pil = _inpaint_pipe(
                     prompt=prompt_text,
+                    negative_prompt=neg_prompt,
                     image=pil_image,
                     mask_image=pil_mask,
                     num_inference_steps=4,
-                    guidance_scale=1.5,
-                    strength=0.45,
+                    guidance_scale=1.8,
+                    strength=0.40,
                 ).images[0]
 
-            return cv2.cvtColor(np.array(result), cv2.COLOR_RGB2BGR)
+            result_rgb = np.array(result_pil, dtype=np.uint8)  # RGB uint8
+
+            # Resize back to original frame size if necessary
+            h_orig, w_orig = composited.shape[:2]
+            if result_rgb.shape[:2] != (h_orig, w_orig):
+                result_rgb = cv2.resize(
+                    result_rgb, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR
+                )
+
+            # 4. Black-output detection: check mean pixel inside mask region
+            border_bin = (border > 30).astype(bool)
+            if border_bin.any():
+                masked_mean = float(result_rgb[border_bin].mean())
+            else:
+                masked_mean = 128.0
+
+            if masked_mean < 10.0:
+                # FALLBACK: inpaint returned dark/black → skip, keep warp
+                logger.debug(
+                    f"Inpaint dark output (mean={masked_mean:.1f}) → garment warp fallback"
+                )
+                return composited
+
+            # 5. Composite inpaint result ONLY on the seam border ring
+            #    (keeps clean garment interior, avoids full-frame replacement)
+            result_bgr = cv2.cvtColor(result_rgb, cv2.COLOR_RGB2BGR)
+            if result_bgr.shape[:2] != (h_orig, w_orig):
+                result_bgr = cv2.resize(result_bgr, (w_orig, h_orig), interpolation=cv2.INTER_LINEAR)
+
+            border_f = border.astype(np.float32) / 255.0
+            border3  = np.dstack([border_f] * 3)
+            final    = (
+                result_bgr.astype(np.float32) * border3
+                + composited_u8.astype(np.float32) * (1.0 - border3)
+            ).astype(np.uint8)
+            return final
+
         except Exception as e:
-            logger.debug(f"Inpaint seam skipped: {e}")
+            logger.debug(f"Inpaint seam error → warp fallback: {e}")
             return composited
+
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -564,7 +623,9 @@ class TryOnEngine:
             blended = (w_shaded * a3 + output.astype(np.float32) * (1.0 - a3)).astype(np.uint8)
 
             # 4e. Optional: SD Inpaint seam harmonization on GPU
-            blended = self._inpaint_seam(blended, torso_mask, product_id)
+            blended = self._inpaint_seam(
+                blended, torso_mask, product_id, warped_bgr, alpha
+            )
 
             output = blended
 
