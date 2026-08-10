@@ -371,6 +371,14 @@ class TryOnEngine:
 
         g = garment.copy()
 
+        # Guarantee 4 channels (RGBA) so background pixels never default to black alpha
+        if g.ndim == 2:
+            g = cv2.cvtColor(g, cv2.COLOR_GRAY2BGRA)
+        elif g.shape[2] == 3:
+            # Create alpha channel: non-black pixels get full alpha
+            a_chan = np.where(np.all(g < 15, axis=2), 0, 255).astype(np.uint8)
+            g = np.dstack([g, a_chan])
+
         # Prompt-guided tint
         if prompt:
             pl = prompt.lower()
@@ -394,9 +402,9 @@ class TryOnEngine:
                                      borderValue=(0,0,0,0))
 
         if warped.shape[2] == 4:
-            alpha = warped[:,:,3].astype(np.float32) / 255.0
+            alpha = warped[:, :, 3].astype(np.float32) / 255.0
         else:
-            alpha = np.ones((h, w), dtype=np.float32)
+            alpha = np.where(np.all(warped < 15, axis=2), 0.0, 1.0).astype(np.float32)
 
         alpha = cv2.GaussianBlur(alpha, (5, 5), 0)
         alpha = np.clip(alpha * 1.12, 0.0, 1.0)

@@ -438,11 +438,8 @@
                 });
                 const data = await res.json();
                 if (data.status === 'success' && data.image) {
-                    const img = new Image();
-                    img.onload = () => {
-                        this.outputCtx.drawImage(img, 0, 0, 512, 512);
-                    };
-                    img.src = 'data:image/jpeg;base64,' + data.image;
+                    document.getElementById('hdResultImg').src = 'data:image/jpeg;base64,' + data.image;
+                    document.getElementById('hdModal').style.display = 'flex';
                 } else {
                     alert('GPU processing notification: ' + (data.message || 'Busy'));
                 }
@@ -498,5 +495,17 @@
 
     const app = new DecartLucyApp();
     </script>
+
+    <!-- ========== HD RESULT POPUP MODAL ========== -->
+    <div id="hdModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+        <div style="position:relative; background:#1e293b; border:2px solid #3b82f6; border-radius:16px; padding:16px; max-width:600px; width:90%; display:flex; flex-direction:column; align-items:center; gap:12px; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                <span style="color:#60a5fa; font-weight:700; font-size:14px;">⚡ Modal Cloud GPU Photorealistic Fit</span>
+                <span style="color:#94a3b8; font-size:22px; cursor:pointer; font-weight:700;" onclick="document.getElementById('hdModal').style.display='none'">✕</span>
+            </div>
+            <img id="hdResultImg" style="width:100%; height:auto; max-height:70vh; border-radius:12px; object-fit:contain; border:1px solid #334155;" src="" alt="HD Fit Result">
+            <button style="background:#2563eb; color:#fff; border:none; padding:10px 24px; border-radius:24px; font-weight:600; cursor:pointer;" onclick="document.getElementById('hdModal').style.display='none'">Resume Live Stream</button>
+        </div>
+    </div>
 </body>
 </html>
