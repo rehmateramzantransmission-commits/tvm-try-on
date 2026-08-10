@@ -214,7 +214,10 @@ def load_environments():
 load_environments()
 
 # Import the refactored engine (face-safe, pose-guided, inpaint-ready)
-from tryon_engine import TryOnEngine as _TryOnEngineImpl
+from tryon_engine import TryOnEngine
+from stream_diffusion_engine import StreamDiffusionVideoEngine, HAS_CUDA_DIFFUSION
+
+stream_engine = StreamDiffusionVideoEngine() if HAS_CUDA_DIFFUSION else None as _TryOnEngineImpl
 
 # --- Try-On Engine wrapper (delegates to tryon_engine.TryOnEngine) ---
 class TryOnEngine:
@@ -447,9 +450,24 @@ async def websocket_tryon(websocket: WebSocket):
                 frame_b64, prod_id, prompt_text, env_name = await frame_queue.get()
 
                 loop = asyncio.get_running_loop()
-                out_b64, latency_ms = await loop.run_in_executor(
-                    None, engine.process_frame, frame_b64, prod_id, prompt_text, env_name
-                )
+                # If CUDA GPU is active, run Live StreamDiffusion Generative AI Video
+                if HAS_CUDA_DIFFUSION and stream_engine is not None:
+                    def _run_stream():
+                        # Decode BGR
+                        user_bytes = base64.b64decode(frame_b64.split(",")[-1])
+                        nparr = np.frombuffer(user_bytes, np.uint8)
+                        img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                        if img_bgr is None: return None, 0
+                        # Get face bbox for protection
+                        face_bbox = engine._get_face_bbox_pixels(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+                        out_bgr, lat = stream_engine.process_stream_frame(img_bgr, prod_id, prompt_text, face_bbox)
+                        _, buf = cv2.imencode(".jpg", out_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                        return base64.b64encode(buf).decode("utf-8"), lat
+                    out_b64, latency_ms = await loop.run_in_executor(None, _run_stream)
+                else:
+                    out_b64, latency_ms = await loop.run_in_executor(
+                        None, engine.process_frame, frame_b64, prod_id, prompt_text, env_name
+                    )
 
                 frames_processed += 1
                 current_time = time.time()
