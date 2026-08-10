@@ -618,13 +618,8 @@ class TryOnEngine:
                 self.garments[product_id], landmarks, h, w, face_bottom_y, prompt
             )
 
-            # 4c. Lighting-adaptive shading
-            gray_f   = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-            gray_b   = cv2.GaussianBlur(gray_f, (21, 21), 0)
-            shading  = np.clip(gray_b * 0.55 + 0.55, 0.60, 1.30)
-            shading3 = np.dstack([shading]*3)
-
-            w_shaded = np.clip(warped_bgr.astype(np.float32) * shading3, 0, 255)
+            # 4c. Clean garment compositing (preserve full asset brightness & textures)
+            w_shaded = warped_bgr.astype(np.float32)
             a3 = np.dstack([alpha]*3)
 
             # 4d. Composite garment onto output
