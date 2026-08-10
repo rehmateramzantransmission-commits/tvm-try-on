@@ -264,6 +264,7 @@
                         <img id="assetBadgeImg" src="/static/products/tuxedo.jpg" alt="Icon">
                         <span class="remove" onclick="app.clearRef()">✕</span>
                     </div>
+                    <button class="btn-send" style="width:auto; padding:0 14px; border-radius:20px; font-size:12px;" onclick="app.triggerHDTryon()">✨ HD GPU FIT</button>
                     <button class="btn-send" onclick="app.sendPrompt()">➔</button>
                 </div>
             </div>
@@ -421,6 +422,33 @@
             document.getElementById('assetBadge').style.display = 'none';
             document.getElementById('refBadge').style.display = 'none';
             this.currentRef = '';
+        }
+
+        async triggerHDTryon() {
+            const frameB64 = this.inputCanvas.toDataURL('image/jpeg', 0.85);
+            alert('🚀 Sent to Modal Cloud GPU! Processing photorealistic fit (~5-8s)...');
+            try {
+                const res = await fetch('/api/hd-tryon', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: frameB64,
+                        product_id: this.currentMode
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.image) {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.outputCtx.drawImage(img, 0, 0, 512, 512);
+                    };
+                    img.src = 'data:image/jpeg;base64,' + data.image;
+                } else {
+                    alert('GPU processing notification: ' + (data.message || 'Busy'));
+                }
+            } catch (e) {
+                console.error('HD Tryon error:', e);
+            }
         }
 
         sendPrompt() {
