@@ -68,7 +68,8 @@ class TryOnServer:
             with open(garm_path, "wb") as f:
                 f.write(base64.b64decode(garment_b64))
 
-            print(f"🚀 Running IDM-VTON GPU Inference for: {garment_desc}...")
+            enhanced_desc = f"Short-sleeved upper body garment: {garment_desc}, sharp fabric texture, realistic studio lighting, photorealistic 4k, crisp lapels"
+            print(f"🚀 Running IDM-VTON GPU Inference for: {enhanced_desc}...")
             
             if self.client is None:
                 from gradio_client import Client
@@ -77,10 +78,10 @@ class TryOnServer:
             res = self.client.predict(
                 dict={"background": handle_file(user_path), "layers": [], "composite": None},
                 garm_img=handle_file(garm_path),
-                garment_des=garment_desc,
+                garment_des=enhanced_desc,
                 is_checked=True,
-                is_checked_crop=False,
-                denoise_steps=25,
+                is_checked_crop=True,
+                denoise_steps=30,
                 seed=42,
                 api_name="/tryon"
             )

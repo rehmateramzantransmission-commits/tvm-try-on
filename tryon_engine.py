@@ -626,8 +626,10 @@ class TryOnEngine:
                 self.garments[product_id], landmarks, h, w, face_bottom_y, prompt
             )
 
-            # 4c. Clean garment compositing (preserve full asset brightness & textures)
-            w_shaded = warped_bgr.astype(np.float32)
+            # 4c. Contrast & Lighting Boost (makes lapels, suit fabric, and collars pop vividly)
+            w_float = warped_bgr.astype(np.float32)
+            # Enhance local contrast for fabric textures & lapels
+            w_shaded = np.clip(w_float * 1.15 + 10.0, 0, 255)
             a3 = np.dstack([alpha]*3)
 
             # 4d. Composite garment onto output
