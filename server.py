@@ -214,10 +214,10 @@ def load_environments():
 load_environments()
 
 # Import the refactored engine (face-safe, pose-guided, inpaint-ready)
-from tryon_engine import TryOnEngine
+from tryon_engine import TryOnEngine as _TryOnEngineImpl
 from stream_diffusion_engine import StreamDiffusionVideoEngine, HAS_CUDA_DIFFUSION
 
-stream_engine = StreamDiffusionVideoEngine() if HAS_CUDA_DIFFUSION else None as _TryOnEngineImpl
+stream_engine = StreamDiffusionVideoEngine() if HAS_CUDA_DIFFUSION else None
 
 # --- Try-On Engine wrapper (delegates to tryon_engine.TryOnEngine) ---
 class TryOnEngine:
