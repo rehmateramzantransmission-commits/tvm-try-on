@@ -135,9 +135,17 @@ class StreamDiffusionVideoEngine:
             }
 
             if _has_ip_adapter and garment_bgr is not None:
-                garm_rgb = cv2.cvtColor(garment_bgr, cv2.COLOR_BGR2RGB)
-                garment_pil = Image.fromarray(garm_rgb)
-                kwargs["ip_adapter_image"] = garment_pil  # <--- 1:1 GARMENT FEATURE EMBEDDING
+                if isinstance(garment_bgr, tuple):
+                    garment_bgr = garment_bgr[0]
+                if isinstance(garment_bgr, np.ndarray):
+                    if garment_bgr.ndim == 3 and garment_bgr.shape[2] == 4:
+                        garm_rgb = cv2.cvtColor(garment_bgr, cv2.COLOR_BGRA2RGB)
+                    elif garment_bgr.ndim == 3 and garment_bgr.shape[2] == 3:
+                        garm_rgb = cv2.cvtColor(garment_bgr, cv2.COLOR_BGR2RGB)
+                    else:
+                        garm_rgb = garment_bgr
+                    garment_pil = Image.fromarray(garm_rgb)
+                    kwargs["ip_adapter_image"] = garment_pil  # <--- 1:1 GARMENT FEATURE EMBEDDING
 
             # 3. Temporal Latent KV-Caching (Zero-Flicker Persistence)
             with torch.inference_mode():
