@@ -82,18 +82,16 @@ class StreamDiffusionVideoEngine:
     """
     Real-Time Temporal Video Diffusion Engine with IP-Adapter & Latent KV-Caching.
     """
-    @property
-    def is_active(self) -> bool:
-        return HAS_CUDA_DIFFUSION and _stream_pipe is not None
-    """
-    Real-Time Temporal Video Diffusion Engine with IP-Adapter & Latent KV-Caching.
-    """
     def __init__(self):
         init_stream_diffusion()
         self.prev_latent: Optional[object] = None
         self.prev_frame_bgr: Optional[np.ndarray] = None
         self.frame_count = 0
         self.alpha_blend = 0.75  # Latent KV-cache momentum weight (0.75 current, 0.25 prev)
+
+    @property
+    def is_active(self) -> bool:
+        return HAS_CUDA_DIFFUSION and _stream_pipe is not None
 
     def process_stream_frame(
         self,
@@ -145,11 +143,17 @@ class StreamDiffusionVideoEngine:
                     else:
                         garm_rgb = garment_bgr
                     garment_pil = Image.fromarray(garm_rgb)
-                    kwargs["ip_adapter_image"] = garment_pil  # <--- 1:1 GARMENT FEATURE EMBEDDING
+                    kwargs["ip_adapter_image"] = [garment_pil]  # <--- 1:1 GARMENT FEATURE EMBEDDING
 
             # 3. Temporal Latent KV-Caching (Zero-Flicker Persistence)
             with torch.inference_mode():
-                result_pil = _stream_pipe(**kwargs).images[0]
+                try:
+                    res_pipe = _stream_pipe(**kwargs)
+                    result_pil = res_pipe.images[0]
+                except Exception as pipe_err:
+                    logger.warning(f"StreamDiffusion IP-Adapter fallback: {pipe_err}")
+                    kwargs.pop("ip_adapter_image", None)
+                    result_pil = _stream_pipe(**kwargs).images[0]
 
             out_bgr = cv2.cvtColor(np.array(result_pil), cv2.COLOR_RGB2BGR)
 
@@ -178,5 +182,7 @@ class StreamDiffusionVideoEngine:
             return out_bgr, latency_ms
 
         except Exception as e:
-            logger.error(f"StreamDiffusion frame error: {e}")
+            import traceback
+            err_msg = str(e)
+            logger.error(f"StreamDiffusion frame error: {err_msg}")
             return frame_bgr, (time.time() - start_t) * 1000
