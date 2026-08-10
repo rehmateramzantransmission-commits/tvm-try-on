@@ -82,6 +82,12 @@ class StreamDiffusionVideoEngine:
     """
     Real-Time Temporal Video Diffusion Engine with IP-Adapter & Latent KV-Caching.
     """
+    @property
+    def is_active(self) -> bool:
+        return HAS_CUDA_DIFFUSION and _stream_pipe is not None
+    """
+    Real-Time Temporal Video Diffusion Engine with IP-Adapter & Latent KV-Caching.
+    """
     def __init__(self):
         init_stream_diffusion()
         self.prev_latent: Optional[object] = None

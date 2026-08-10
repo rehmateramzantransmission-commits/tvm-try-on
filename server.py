@@ -215,9 +215,9 @@ load_environments()
 
 # Import the refactored engine (face-safe, pose-guided, inpaint-ready)
 from tryon_engine import TryOnEngine as _TryOnEngineImpl
-from stream_diffusion_engine import StreamDiffusionVideoEngine, HAS_CUDA_DIFFUSION
+from stream_diffusion_engine import StreamDiffusionVideoEngine
 
-stream_engine = StreamDiffusionVideoEngine() if HAS_CUDA_DIFFUSION else None
+stream_engine = StreamDiffusionVideoEngine()
 
 # --- Try-On Engine wrapper (delegates to tryon_engine.TryOnEngine) ---
 class TryOnEngine:
@@ -451,7 +451,7 @@ async def websocket_tryon(websocket: WebSocket):
 
                 loop = asyncio.get_running_loop()
                 # If CUDA GPU is active, run Live StreamDiffusion Generative AI Video
-                if HAS_CUDA_DIFFUSION and stream_engine is not None:
+                if stream_engine is not None and stream_engine.is_active:
                     def _run_stream():
                         # Decode BGR
                         user_bytes = base64.b64decode(frame_b64.split(",")[-1])
