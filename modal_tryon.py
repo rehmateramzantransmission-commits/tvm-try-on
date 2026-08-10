@@ -2,7 +2,7 @@
 modal_tryon.py
 ================
 Modal Cloud GPU Virtual Try-On Serverless Backend
-Runs IDM-VTON / High-Quality Try-On on NVIDIA GPUs (A10G / T4)
+Runs StreamDiffusion 30FPS + IDM-VTON on NVIDIA GPUs (A10G / L40S)
 """
 
 import base64
