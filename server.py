@@ -341,6 +341,25 @@ def _run_hd_tryon_sync(frame_b64: str, product_id: str) -> Optional[str]:
         if not os.path.exists(garm_path):
             garm_path = str(GARMENTS_DIR / f"{product_id}.png")
 
+        # Try Modal Cloud GPU Web Endpoint first
+        modal_url = os.environ.get("MODAL_TRYON_URL", "https://rehmateramzantransmission--tvm-live-try-on-web-tryon.modal.run")
+        try:
+            import requests
+            with open(garm_path, "rb") as gf:
+                garm_b64 = base64.b64encode(gf.read()).decode("utf-8")
+            resp = requests.post(modal_url, json={
+                "user_image": frame_b64,
+                "garment_image": garm_b64,
+                "description": f"{product.brand} {product.name}"
+            }, timeout=45)
+            if resp.status_code == 200:
+                res_data = resp.json()
+                if res_data.get("status") == "success" and res_data.get("image"):
+                    logger.info(f"⚡ Modal Cloud GPU HD Fit finished for product {product_id}!")
+                    return res_data["image"]
+        except Exception as modal_err:
+            logger.info(f"Modal web endpoint fallback: {modal_err}")
+
         logger.info(f"Triggering IDM-VTON Neural Fit for product {product_id}...")
         from gradio_client import Client, handle_file
 
